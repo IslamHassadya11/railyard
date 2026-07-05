@@ -2,7 +2,7 @@
 
 **A regex playground with a visible engine.** Not just another matcher — RAILYARD compiles your regular expression into a real state machine, shows you how the engine walks your text, and turns it into a full text-processing toolkit.
 
-🔗 **Live demo:** `https://YOURUSERNAME.github.io/railyard`
+🔗 **Live demo:** `https://IslamHassadya11.github.io/railyard`
 
 ---
 
@@ -74,6 +74,13 @@ The parser produces an AST covering literals, character classes, groups (capturi
 No frameworks, no build step, no dependencies — one `index.html` file.
 
 ---
+## Roadmap
+
+- DFA conversion (subset construction) shown next to the NFA
+- Animated match runner that lights up NFA states as it consumes each character
+- `\p{...}` Unicode property class explorer
+- Command palette + keyboard shortcuts
+
 
 ## Run it locally
 
@@ -87,53 +94,6 @@ python3 -m http.server 8000
 ```
 
 ---
-
-## Publish it online (free)
-
-### GitHub Pages — recommended
-
-**Drag-and-drop (no command line):**
-
-1. Create a **free** account at [github.com](https://github.com) if you don't have one.
-2. Click **+ → New repository**, name it `railyard`, keep it **Public**, click **Create repository**.
-3. On the repo page, click **"uploading an existing file"**.
-4. Drag `index.html` and `README.md` in, then **Commit changes**.
-5. Go to **Settings → Pages → Source: Deploy from a branch → main → / (root) → Save**.
-6. Wait ~60 seconds. Your live link appears at the top of the Pages settings:
-   `https://YOURUSERNAME.github.io/railyard`
-
-Share that link with anyone — it works on phones, laptops, anything with a browser.
-
-**Command line:**
-
-```bash
-git init
-git add index.html README.md
-git commit -m "RAILYARD — regex playground"
-git branch -M main
-git remote add origin https://github.com/YOURUSERNAME/railyard.git
-git push -u origin main
-```
-
-Then enable Pages as in step 5 above.
-
-### Other free hosts
-
-Any of these will host a single HTML file for free, often with drag-and-drop:
-
-- **Netlify Drop** — drag the folder onto [app.netlify.com/drop](https://app.netlify.com/drop), instant public URL.
-- **Vercel** — import the repo, deploys automatically.
-- **Cloudflare Pages** — connect the repo, free tier.
-- **GitHub Gist + gistpreview** — quickest for a single file.
-
----
-
-## Roadmap
-
-- DFA conversion (subset construction) shown next to the NFA
-- Animated match runner that lights up NFA states as it consumes each character
-- `\p{...}` Unicode property class explorer
-- Command palette + keyboard shortcuts
 
 ## License
 
