@@ -1,0 +1,1374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAILYARD — Regex Playground with a Visible Engine</title>
+<meta name="description" content="A regex playground that shows the matching engine at work: railroad diagrams, plain-English explanations, and a step-through match trace with backtracking.">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#12161d;--panel:#1a1f28;--panel2:#20262f;--sunk:#0e1218;
+  --line:#2a323d;--line2:#374250;
+  --tx:#e6ebf1;--txs:#9aa6b3;--txd:#66727f;
+  --green:#5ce8a8;--greend:#2f8f66;
+  --amber:#f0b64a;--coral:#f0705a;--blue:#5cb4e8;--purple:#b48cf0;
+  --mono:'JetBrains Mono',monospace;--ui:'Inter',sans-serif;
+}
+html,body{height:100%}
+body{background:var(--bg);color:var(--tx);font-family:var(--ui);
+  font-size:14px;line-height:1.5;overflow-x:hidden}
+.wrap{max-width:1240px;margin:0 auto;padding:0 20px}
+header{border-bottom:1px solid var(--line);position:sticky;top:0;z-index:30;
+  background:rgba(18,22,29,0.9);backdrop-filter:blur(12px)}
+.head-in{display:flex;align-items:center;justify-content:space-between;
+  padding:14px 20px;max-width:1240px;margin:0 auto}
+.logo{display:flex;align-items:center;gap:11px}
+.logo-mark{width:30px;height:30px;flex-shrink:0}
+.logo-mark svg{width:100%;height:100%}
+.logo-txt{font-family:var(--mono);font-weight:700;font-size:16px;letter-spacing:0.02em}
+.logo-txt span{color:var(--green)}
+.logo-sub{font-size:11px;color:var(--txs);margin-left:2px;font-weight:400}
+.head-actions{display:flex;gap:8px;align-items:center}
+.btn{font-family:var(--mono);font-size:12px;padding:7px 13px;border-radius:8px;
+  border:1px solid var(--line2);background:var(--panel);color:var(--txs);
+  cursor:pointer;transition:0.15s;display:inline-flex;align-items:center;gap:6px;text-decoration:none}
+.btn:hover{border-color:var(--green);color:var(--green)}
+.btn.solid{background:var(--green);color:#0c1410;border-color:var(--green);font-weight:600}
+.btn.solid:hover{background:#6ff0b4}
+.editor{padding:22px 0 8px}
+.field{margin-bottom:14px}
+.field-label{display:flex;align-items:center;justify-content:space-between;
+  font-family:var(--mono);font-size:11px;color:var(--txs);
+  text-transform:uppercase;letter-spacing:0.1em;margin-bottom:7px}
+.pat-wrap{display:flex;align-items:stretch;background:var(--sunk);
+  border:1px solid var(--line2);border-radius:11px;overflow:hidden;transition:border-color 0.15s}
+.pat-wrap:focus-within{border-color:var(--green)}
+.pat-delim{display:flex;align-items:center;padding:0 14px;font-family:var(--mono);
+  font-size:18px;color:var(--txd);background:var(--panel);user-select:none}
+#pattern{flex:1;background:transparent;border:none;outline:none;color:var(--tx);
+  font-family:var(--mono);font-size:16px;padding:14px 12px;letter-spacing:0.01em;min-width:0}
+#pattern::placeholder{color:var(--txd)}
+.flags{display:flex;align-items:center;gap:3px;padding:0 10px;background:var(--panel)}
+.flag{width:26px;height:26px;border-radius:6px;border:1px solid transparent;
+  background:transparent;color:var(--txd);font-family:var(--mono);font-size:13px;
+  cursor:pointer;transition:0.12s;font-weight:500}
+.flag:hover{color:var(--txs);background:var(--panel2)}
+.flag.on{background:var(--green);color:#0c1410;border-color:var(--green);font-weight:700}
+.pat-error{font-family:var(--mono);font-size:12px;color:var(--coral);
+  margin-top:7px;display:none;align-items:center;gap:7px}
+.pat-error.show{display:flex}
+#test{width:100%;background:var(--sunk);border:1px solid var(--line2);
+  border-radius:11px;color:var(--tx);font-family:var(--mono);font-size:14px;
+  padding:14px;outline:none;resize:vertical;min-height:96px;line-height:1.7;
+  transition:border-color 0.15s;position:relative;z-index:1}
+#test:focus{border-color:var(--blue)}
+.hl-wrap{position:relative}
+#highlights{position:absolute;inset:0;padding:14px;font-family:var(--mono);
+  font-size:14px;line-height:1.7;pointer-events:none;white-space:pre-wrap;
+  word-break:break-word;color:transparent;overflow:hidden;border:1px solid transparent;z-index:2}
+mark{border-radius:3px;color:transparent;padding:1px 0}
+mark.m0{background:rgba(92,232,168,0.28);box-shadow:0 0 0 1px rgba(92,232,168,0.5)}
+mark.m1{background:rgba(92,180,232,0.28);box-shadow:0 0 0 1px rgba(92,180,232,0.5)}
+.warn{display:none;align-items:flex-start;gap:11px;background:rgba(240,182,74,0.08);
+  border:1px solid rgba(240,182,74,0.35);border-radius:10px;padding:12px 14px;margin-top:12px}
+.warn.show{display:flex}
+.warn-ico{color:var(--amber);flex-shrink:0;margin-top:1px}
+.warn-body{font-size:13px;color:var(--tx)}
+.warn-body b{color:var(--amber)}
+.warn-body code{font-family:var(--mono);font-size:12px;background:var(--sunk);
+  padding:1px 5px;border-radius:4px;color:var(--amber)}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-top:26px;flex-wrap:wrap}
+.tab{font-family:var(--mono);font-size:12.5px;padding:11px 16px;background:none;
+  border:none;color:var(--txs);cursor:pointer;position:relative;transition:color 0.15s;
+  display:flex;align-items:center;gap:7px}
+.tab:hover{color:var(--tx)}
+.tab.on{color:var(--green)}
+.tab.on::after{content:'';position:absolute;bottom:-1px;left:0;right:0;height:2px;background:var(--green)}
+.tab .badge{font-size:10px;background:var(--panel2);color:var(--txs);
+  padding:1px 6px;border-radius:10px;border:1px solid var(--line2)}
+.tab.on .badge{background:var(--green);color:#0c1410;border-color:var(--green)}
+.panel{background:var(--panel);border:1px solid var(--line);border-top:none;
+  border-radius:0 0 12px 12px;min-height:260px;padding:22px}
+.tabpane{display:none}
+.tabpane.on{display:block;animation:fade 0.25s ease}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+#railroad{width:100%;overflow-x:auto;padding:8px 0}
+#railroad svg{display:block}
+.rr-hint{font-family:var(--mono);font-size:11px;color:var(--txd);margin-top:12px;
+  display:flex;gap:16px;flex-wrap:wrap}
+.rr-hint span{display:flex;align-items:center;gap:6px}
+.rr-key{width:14px;height:14px;border-radius:3px}
+.explain-list{display:flex;flex-direction:column;gap:2px}
+.exp-row{display:flex;gap:14px;padding:11px 12px;border-radius:9px;
+  transition:background 0.12s;align-items:baseline}
+.exp-row:hover{background:var(--panel2)}
+.exp-token{font-family:var(--mono);font-size:14px;font-weight:500;min-width:96px;flex-shrink:0}
+.exp-token.literal{color:var(--tx)}.exp-token.meta{color:var(--purple)}
+.exp-token.quant{color:var(--amber)}.exp-token.group{color:var(--blue)}
+.exp-token.cls{color:var(--green)}.exp-token.anchor{color:var(--coral)}
+.exp-desc{font-size:13.5px;color:var(--txs);line-height:1.55}
+.exp-desc b{color:var(--tx);font-weight:500}
+.exp-desc code{font-family:var(--mono);font-size:12px;color:var(--amber)}
+.trace-top{display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:18px;flex-wrap:wrap;gap:12px}
+.trace-ctl{display:flex;align-items:center;gap:8px}
+.trace-ctl .btn{padding:8px 12px}
+.trace-scrub{flex:1;min-width:180px;display:flex;align-items:center;gap:12px}
+#traceRange{flex:1;-webkit-appearance:none;height:4px;border-radius:3px;
+  background:var(--line2);outline:none;cursor:pointer}
+#traceRange::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;
+  border-radius:50%;background:var(--green);cursor:pointer;box-shadow:0 0 0 3px rgba(92,232,168,0.2)}
+.trace-step-num{font-family:var(--mono);font-size:12px;color:var(--txs);
+  white-space:nowrap;min-width:92px;text-align:right}
+.trace-stage{background:var(--sunk);border:1px solid var(--line2);border-radius:11px;
+  padding:20px;font-family:var(--mono);font-size:19px;line-height:2.1;
+  word-break:break-word;min-height:80px;letter-spacing:0.04em}
+.tc{transition:all 0.1s;padding:2px 0}
+.tc.consumed{color:var(--green)}
+.tc.cursor{background:var(--amber);color:#12161d;border-radius:3px;box-shadow:0 0 12px rgba(240,182,74,0.6)}
+.tc.tried{background:rgba(240,112,90,0.25);color:var(--coral);border-radius:3px}
+.tc.pending{color:var(--txd)}
+.trace-info{display:flex;gap:14px;margin-top:16px;flex-wrap:wrap}
+.trace-card{flex:1;min-width:150px;background:var(--panel2);border:1px solid var(--line);
+  border-radius:9px;padding:12px 14px}
+.trace-card .k{font-family:var(--mono);font-size:10px;color:var(--txs);
+  text-transform:uppercase;letter-spacing:0.09em;margin-bottom:5px}
+.trace-card .v{font-family:var(--mono);font-size:14px;color:var(--tx)}
+.trace-card .v.ok{color:var(--green)}.trace-card .v.fail{color:var(--coral)}
+.trace-caption{font-size:13px;color:var(--txs);margin-top:14px;line-height:1.6;
+  padding:12px 14px;background:var(--panel2);border-radius:9px;border-left:2px solid var(--green)}
+.trace-caption b{color:var(--tx)}
+.trace-empty{color:var(--txd);font-family:var(--mono);font-size:13px;text-align:center;padding:40px 0}
+.match-item{background:var(--panel2);border:1px solid var(--line);border-radius:10px;
+  padding:13px 15px;margin-bottom:10px}
+.match-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}
+.match-idx{font-family:var(--mono);font-size:12px;color:var(--green);font-weight:600}
+.match-pos{font-family:var(--mono);font-size:11px;color:var(--txd)}
+.match-val{font-family:var(--mono);font-size:14px;color:var(--tx);
+  background:var(--sunk);padding:6px 9px;border-radius:6px;word-break:break-word}
+.groups{margin-top:10px;display:flex;flex-direction:column;gap:5px}
+.grp{display:flex;gap:11px;align-items:baseline;font-family:var(--mono);font-size:12px}
+.grp-n{color:var(--blue);min-width:78px;flex-shrink:0}
+.grp-v{color:var(--txs);word-break:break-word}
+.grp-v.empty{color:var(--txd);font-style:italic}
+.layout{display:grid;grid-template-columns:1fr 280px;gap:22px;padding-bottom:60px}
+@media(max-width:940px){.layout{grid-template-columns:1fr}.side{order:-1}}
+.side-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+  padding:16px;margin-bottom:16px}
+.side-card h3{font-family:var(--mono);font-size:11px;color:var(--txs);
+  text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px;font-weight:500}
+.lib-item{display:flex;flex-direction:column;gap:2px;padding:9px 10px;border-radius:8px;
+  cursor:pointer;transition:background 0.12s;margin:0 -4px}
+.lib-item:hover{background:var(--panel2)}
+.lib-name{font-size:12.5px;color:var(--tx);font-weight:500}
+.lib-pat{font-family:var(--mono);font-size:11px;color:var(--green);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cheat-grid{display:flex;flex-direction:column;gap:3px}
+.cheat{display:flex;gap:10px;padding:6px 8px;border-radius:6px;cursor:pointer;
+  transition:background 0.12s;align-items:baseline;margin:0 -4px}
+.cheat:hover{background:var(--panel2)}
+.cheat code{font-family:var(--mono);font-size:12px;color:var(--amber);min-width:36px;flex-shrink:0}
+.cheat span{font-size:11.5px;color:var(--txs)}
+footer{border-top:1px solid var(--line);padding:24px 0;text-align:center;font-size:12px;color:var(--txd)}
+footer a{color:var(--txs);text-decoration:none}
+footer a:hover{color:var(--green)}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);
+  background:var(--panel);border:1px solid var(--line2);border-radius:10px;
+  padding:11px 18px;font-family:var(--mono);font-size:12px;color:var(--tx);
+  opacity:0;transition:0.3s;z-index:50;pointer-events:none}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.io-head{display:flex;align-items:center;justify-content:space-between;
+  font-family:var(--mono);font-size:11px;color:var(--txs);text-transform:uppercase;
+  letter-spacing:0.09em;margin-bottom:9px}
+.io-out{background:var(--sunk);border:1px solid var(--line2);border-radius:11px;
+  padding:14px;font-family:var(--mono);font-size:13.5px;line-height:1.7;color:var(--tx);
+  white-space:pre-wrap;word-break:break-word;min-height:120px;max-height:340px;overflow:auto}
+.io-out .rep{background:rgba(92,232,168,0.22);border-radius:3px;
+  box-shadow:0 0 0 1px rgba(92,232,168,0.4);padding:0 1px}
+.io-note{font-family:var(--mono);font-size:11px;color:var(--txd);margin-top:9px}
+.mini-sel{font-family:var(--mono);font-size:11px;background:var(--panel);
+  border:1px solid var(--line2);color:var(--txs);border-radius:8px;padding:6px 8px;
+  cursor:pointer;outline:none}
+.mini-sel:focus{border-color:var(--green)}
+.split-out{display:flex;flex-direction:column;gap:6px;max-height:360px;overflow:auto}
+.split-piece{display:flex;gap:12px;align-items:baseline;background:var(--sunk);
+  border:1px solid var(--line);border-radius:8px;padding:9px 12px}
+.split-piece .n{font-family:var(--mono);font-size:11px;color:var(--blue);
+  min-width:34px;flex-shrink:0}
+.split-piece .t{font-family:var(--mono);font-size:13px;color:var(--tx);word-break:break-word}
+.split-piece .t.empty{color:var(--txd);font-style:italic}
+.test-area{width:100%;background:var(--sunk);border:1px solid var(--line2);
+  border-radius:10px;color:var(--tx);font-family:var(--mono);font-size:13px;
+  padding:12px;outline:none;resize:vertical;min-height:120px;line-height:1.7}
+.test-area:focus{border-color:var(--green)}
+.test-row{display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:8px;
+  font-family:var(--mono);font-size:13px;margin-bottom:6px;border:1px solid var(--line)}
+.test-row.pass{background:rgba(92,232,168,0.08);border-color:rgba(92,232,168,0.3)}
+.test-row.fail{background:rgba(240,112,90,0.1);border-color:rgba(240,112,90,0.35)}
+.test-row .ico{flex-shrink:0;font-weight:700}
+.test-row.pass .ico{color:var(--green)}
+.test-row.fail .ico{color:var(--coral)}
+.test-row .txt{color:var(--tx);word-break:break-word;flex:1}
+.test-row .exp{font-size:11px;color:var(--txs)}
+.test-summary{font-family:var(--mono);font-size:13px;margin-bottom:14px;
+  padding:12px 14px;border-radius:9px;background:var(--panel2)}
+.test-summary.allpass{color:var(--green);border-left:2px solid var(--green)}
+.test-summary.somefail{color:var(--coral);border-left:2px solid var(--coral)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="head-in">
+    <div class="logo">
+      <div class="logo-mark">
+        <svg viewBox="0 0 32 32" fill="none">
+          <rect x="1" y="1" width="30" height="30" rx="8" fill="#1a1f28" stroke="#2a323d"/>
+          <circle cx="9" cy="16" r="3" fill="#5ce8a8"/>
+          <circle cx="23" cy="10" r="2.5" fill="#5cb4e8"/>
+          <circle cx="23" cy="22" r="2.5" fill="#f0b64a"/>
+          <path d="M11.5 15L20.5 10.5M11.5 17L20.5 21.5" stroke="#66727f" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="logo-txt">RAIL<span>YARD</span></div>
+      <span class="logo-sub">· regex, with a visible engine</span>
+    </div>
+    <div class="head-actions">
+      <button class="btn" id="shareBtn">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M11 5.5a2 2 0 100-4 2 2 0 000 4zM5 10a2 2 0 100-4 2 2 0 000 4zm6 4.5a2 2 0 100-4 2 2 0 000 4z" stroke="currentColor" stroke-width="1.3"/><path d="M6.7 9l2.6 1.5M9.3 5.5L6.7 7" stroke="currentColor" stroke-width="1.3"/></svg>
+        Share
+      </button>
+      <a class="btn solid" href="#" onclick="return false">Star on GitHub</a>
+    </div>
+  </div>
+</header>
+
+<div class="wrap editor">
+  <div class="field">
+    <div class="field-label"><span>Pattern</span><span id="patStatus"></span></div>
+    <div class="pat-wrap">
+      <div class="pat-delim">/</div>
+      <input id="pattern" spellcheck="false" autocomplete="off"
+             placeholder="type a regular expression…" value="(\w+)@(\w+)\.(\w+)">
+      <div class="pat-delim">/</div>
+      <div class="flags" id="flags">
+        <button class="flag on" data-f="g" title="global">g</button>
+        <button class="flag" data-f="i" title="ignore case">i</button>
+        <button class="flag" data-f="m" title="multiline">m</button>
+        <button class="flag" data-f="s" title="dotall">s</button>
+        <button class="flag" data-f="u" title="unicode">u</button>
+        <button class="flag" data-f="y" title="sticky">y</button>
+      </div>
+    </div>
+    <div class="pat-error" id="patError">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.3"/><path d="M8 4.5v4M8 11h.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <span id="patErrorMsg"></span>
+    </div>
+    <div class="warn" id="warnBox">
+      <div class="warn-ico">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M10 2L2 17h16L10 2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M10 8v4M10 14.5h.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </div>
+      <div class="warn-body" id="warnMsg"></div>
+    </div>
+  </div>
+
+  <div class="field">
+    <div class="field-label"><span>Test string</span><span id="matchCount">0 matches</span></div>
+    <div class="hl-wrap">
+      <div id="highlights"></div>
+      <textarea id="test" spellcheck="false" placeholder="paste text to test against…">Contact us: alice@example.com or bob@test.org
+Invalid: not-an-email, also@nope
+Reach sam@company.io anytime.</textarea>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="layout">
+    <div class="main">
+      <div class="tabs">
+        <button class="tab on" data-tab="rail">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="3" cy="8" r="2" stroke="currentColor" stroke-width="1.2"/><circle cx="13" cy="8" r="2" stroke="currentColor" stroke-width="1.2"/><path d="M5 8h6" stroke="currentColor" stroke-width="1.2"/></svg>
+          Railroad
+        </button>
+        <button class="tab" data-tab="explain">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 4h10M3 8h10M3 12h6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+          Explanation
+        </button>
+        <button class="tab" data-tab="trace">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 8h3l2-5 2 10 2-5h3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Match Trace
+          <span class="badge">live</span>
+        </button>
+        <button class="tab" data-tab="matches">
+          Matches <span class="badge" id="matchesBadge">0</span>
+        </button>
+        <button class="tab" data-tab="replace">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 6l3-3 3 3M6 3v7a3 3 0 003 3h4M13 10l-3 3-3-3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Replace
+        </button>
+        <button class="tab" data-tab="extract">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 4h8M2 8h8M2 12h5M12 6l2 2-2 2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Extract
+        </button>
+        <button class="tab" data-tab="split">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2v12M4 5L2 8l2 3M12 5l2 3-2 3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Split
+        </button>
+        <button class="tab" data-tab="nfa">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="3" cy="8" r="2" stroke="currentColor" stroke-width="1.2"/><circle cx="8" cy="4" r="2" stroke="currentColor" stroke-width="1.2"/><circle cx="13" cy="8" r="2" stroke="currentColor" stroke-width="1.2"/><path d="M4.5 7L6.5 5M9.5 5l2 2" stroke="currentColor" stroke-width="1.2"/></svg>
+          State Machine
+          <span class="badge">NFA</span>
+        </button>
+        <button class="tab" data-tab="perf">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 13L6 8l3 3 5-7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Profiler
+        </button>
+        <button class="tab" data-tab="export">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2v8m0 0L5 7m3 3l3-3M3 13h10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Export
+        </button>
+        <button class="tab" data-tab="tests">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M6 8l1.5 1.5L10.5 6M3 3h10v10H3z" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Tests
+          <span class="badge" id="testsBadge">0</span>
+        </button>
+      </div>
+      <div class="panel">
+        <div class="tabpane on" id="pane-rail">
+          <div id="railroad"></div>
+          <div class="rr-hint">
+            <span><span class="rr-key" style="background:var(--tx)"></span>literal</span>
+            <span><span class="rr-key" style="background:var(--green)"></span>char class</span>
+            <span><span class="rr-key" style="background:var(--blue)"></span>group</span>
+            <span><span class="rr-key" style="background:var(--amber)"></span>quantifier</span>
+            <span><span class="rr-key" style="background:var(--coral)"></span>anchor</span>
+          </div>
+        </div>
+        <div class="tabpane" id="pane-explain">
+          <div class="explain-list" id="explainList"></div>
+        </div>
+        <div class="tabpane" id="pane-trace">
+          <div class="trace-top">
+            <div class="trace-ctl">
+              <button class="btn" id="tracePlay">▶ Play</button>
+              <button class="btn" id="traceStep">Step ›</button>
+              <button class="btn" id="traceReset">Reset</button>
+            </div>
+            <div class="trace-scrub">
+              <input type="range" id="traceRange" min="0" max="0" value="0">
+              <div class="trace-step-num" id="traceStepNum">step 0 / 0</div>
+            </div>
+          </div>
+          <div class="trace-stage" id="traceStage">
+            <div class="trace-empty">Enter a pattern and test string to trace the engine.</div>
+          </div>
+          <div class="trace-info">
+            <div class="trace-card"><div class="k">Pattern</div><div class="v" id="tcRegex">—</div></div>
+            <div class="trace-card"><div class="k">String position</div><div class="v" id="tcStr">—</div></div>
+            <div class="trace-card"><div class="k">Action</div><div class="v" id="tcAction">—</div></div>
+            <div class="trace-card"><div class="k">Failed attempts</div><div class="v" id="tcBack">0</div></div>
+          </div>
+          <div class="trace-caption" id="traceCaption">
+            The trace shows a simplified view of how a backtracking engine walks your pattern across the text — where it matches, where it fails, and where it moves on.
+          </div>
+        </div>
+        <div class="tabpane" id="pane-matches">
+          <div id="matchesList"></div>
+        </div>
+        <div class="tabpane" id="pane-replace">
+          <div class="field-label" style="margin-bottom:8px"><span>Replacement</span><span style="color:var(--txd)">use $1 $2 for groups · $&amp; for whole match</span></div>
+          <div class="pat-wrap" style="margin-bottom:16px">
+            <div class="pat-delim" style="font-size:14px">↦</div>
+            <input id="replaceInput" spellcheck="false" autocomplete="off" placeholder="replacement text… e.g.  [$1]" style="flex:1;background:transparent;border:none;outline:none;color:var(--tx);font-family:var(--mono);font-size:15px;padding:13px 12px;min-width:0">
+          </div>
+          <div class="io-head"><span>Result</span>
+            <button class="btn" id="copyReplace"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><rect x="5" y="5" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M3 11V3.5A1.5 1.5 0 014.5 2H11" stroke="currentColor" stroke-width="1.3"/></svg>Copy</button>
+          </div>
+          <pre class="io-out" id="replaceOut"></pre>
+          <div class="io-note" id="replaceNote"></div>
+        </div>
+        <div class="tabpane" id="pane-extract">
+          <div class="io-head"><span>Extracted matches</span>
+            <div style="display:flex;gap:8px;align-items:center">
+              <select id="extractMode" class="mini-sel">
+                <option value="full">Whole match</option>
+                <option value="g1">Group 1</option>
+                <option value="g2">Group 2</option>
+                <option value="g3">Group 3</option>
+              </select>
+              <button class="btn" id="copyExtract"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><rect x="5" y="5" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M3 11V3.5A1.5 1.5 0 014.5 2H11" stroke="currentColor" stroke-width="1.3"/></svg>Copy</button>
+            </div>
+          </div>
+          <pre class="io-out" id="extractOut"></pre>
+          <div class="io-note" id="extractNote"></div>
+        </div>
+        <div class="tabpane" id="pane-split">
+          <div class="io-head"><span>Pieces (text split on your pattern)</span>
+            <button class="btn" id="copySplit"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><rect x="5" y="5" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M3 11V3.5A1.5 1.5 0 014.5 2H11" stroke="currentColor" stroke-width="1.3"/></svg>Copy as lines</button>
+          </div>
+          <div id="splitOut" class="split-out"></div>
+          <div class="io-note" id="splitNote"></div>
+        </div>
+        <div class="tabpane" id="pane-nfa">
+          <div class="io-head"><span>Compiled state machine (Thompson NFA)</span>
+            <span style="color:var(--txd)">ε = epsilon (free) transition</span>
+          </div>
+          <div id="nfaDiagram" style="width:100%;overflow-x:auto;padding:8px 0;min-height:180px"></div>
+          <div class="io-note" id="nfaNote"></div>
+        </div>
+        <div class="tabpane" id="pane-perf">
+          <div class="io-head"><span>Performance profile</span>
+            <button class="btn" id="runPerf">▶ Run benchmark</button>
+          </div>
+          <div id="perfChart" style="width:100%;min-height:220px;padding:8px 0"></div>
+          <div class="trace-caption" id="perfNote">Runs your pattern against inputs of growing length and plots match time. A straight line is healthy; an upward curve reveals catastrophic backtracking.</div>
+        </div>
+        <div class="tabpane" id="pane-export">
+          <div class="io-head"><span>Use this regex in your code</span>
+            <select id="exportLang" class="mini-sel">
+              <option value="js">JavaScript</option>
+              <option value="py">Python</option>
+              <option value="java">Java</option>
+              <option value="go">Go</option>
+              <option value="rust">Rust</option>
+              <option value="php">PHP</option>
+              <option value="ruby">Ruby</option>
+              <option value="csharp">C#</option>
+            </select>
+          </div>
+          <div class="io-head" style="margin-top:4px"><span></span>
+            <button class="btn" id="copyExport"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><rect x="5" y="5" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M3 11V3.5A1.5 1.5 0 014.5 2H11" stroke="currentColor" stroke-width="1.3"/></svg>Copy code</button>
+          </div>
+          <pre class="io-out" id="exportOut"></pre>
+        </div>
+        <div class="tabpane" id="pane-tests">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+            <div>
+              <div class="io-head"><span style="color:var(--green)">✓ Should match</span></div>
+              <textarea id="shouldMatch" class="test-area" spellcheck="false" placeholder="one example per line…&#10;alice@example.com&#10;bob@test.org"></textarea>
+            </div>
+            <div>
+              <div class="io-head"><span style="color:var(--coral)">✗ Should NOT match</span></div>
+              <textarea id="shouldNot" class="test-area" spellcheck="false" placeholder="one example per line…&#10;not-an-email&#10;@nope"></textarea>
+            </div>
+          </div>
+          <div id="testResults" style="margin-top:16px"></div>
+        </div>
+      </div>
+    </div>
+
+    <aside class="side">
+      <div class="side-card">
+        <h3>Pattern Library</h3>
+        <div id="library"></div>
+      </div>
+      <div class="side-card">
+        <h3>Cheatsheet</h3>
+        <div class="cheat-grid" id="cheatsheet"></div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap">
+    RAILYARD — an open-source regex playground ·
+    <a href="#" onclick="return false">GitHub</a> ·
+    Pattern &amp; test are saved in the URL so you can share exactly what you see.
+  </div>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════
+   RAILYARD — a regex playground with a visible engine
+   ---------------------------------------------------------------------------
+   Everything runs client-side. The core is a small compiler pipeline:
+
+       pattern string  →  Parser  →  AST  →  { railroad, explanation, NFA, ... }
+
+   The same AST feeds every view, so the diagram, the explanation, and the
+   state machine can never drift out of sync. No frameworks, no build step.
+
+   ---------------------------------------------------------------------------
+   FUNCTION MAP (search these headings to jump around)
+
+   1. PARSER
+        parseRegex(src)      recursive-descent parser → AST
+                             (parseAlt → parseSeq → parseQuant → parseAtom → parseClass)
+
+   2. EXPLANATION
+        explainAST(node)     AST → list of {token, description} rows
+        describeClass(node)  helper: renders a [..] class in English
+
+   3. RAILROAD DIAGRAM
+        measure(node)        pass 1: compute each node's width/height
+        draw(node,x,y)       pass 2: emit SVG at a position
+        renderRailroad(ast)  ties the two passes together
+
+   4. MATCH TRACE
+        buildTrace(re,text)  record the engine's step-by-step scan
+        renderTraceStage()   paint the current step; play/step/reset controls
+
+   5. CATASTROPHIC BACKTRACKING
+        checkCatastrophic(src)  heuristic ReDoS warning
+
+   6. MAIN
+        run()                the coordinator — re-renders every view from state
+        escapeHtml(s)        safety helper used everywhere we inject text
+
+   ADVANCED
+        buildNFA(ast)        Thompson's construction → NFA
+        renderNFA()          lay out + draw the state machine
+        runProfiler()        benchmark vs. growing input, plot the curve
+        renderExport()       emit equivalent code in 8 languages
+        renderTests(re)      run should-match / should-not-match example lists
+        renderReplace / renderExtract / renderSplit   text transforms
+
+   STATE + WIRING
+        state                the single source of truth (pattern, flags, test)
+        saveURL / loadURL    encode the whole state in the URL hash for sharing
+        (bottom of file)     event listeners connect the UI to run()
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+// Tiny DOM helpers — $ grabs one element, $$ grabs a real array of them.
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+
+// The single source of truth for what the user has typed.
+// Everything re-renders from this object whenever run() is called.
+let state = { pattern:'', flags:'g', test:'' };
+
+/* ─── 1. PARSER: pattern string → AST ──────────────────────────────────────
+   A hand-written recursive-descent parser. Each grammar rule is one function,
+   and they call each other following regex precedence (lowest to highest):
+
+       alternation  ( a | b )     ← loosest binding
+         └ sequence ( abc )
+             └ quantifier ( a+ )
+                 └ atom ( a, [..], (..), \d, ^ )   ← tightest binding
+
+   `i` is our read cursor into the source string; peek/next/eof move it. */
+function parseRegex(src){
+  let i = 0, groupNum = 0;                       // groupNum = running capture-group counter
+  const peek = () => src[i], next = () => src[i++], eof = () => i >= src.length;
+
+  // alternation: one or more sequences separated by "|"
+  function parseAlt(){
+    const branches = [parseSeq()];
+    while(peek()==='|'){ next(); branches.push(parseSeq()); }
+    // If there's only one branch there's no real choice — flatten it away.
+    return branches.length===1 ? branches[0] : {type:'alt', branches};
+  }
+
+  // sequence: a run of quantified atoms, e.g. `abc` or `\d+-\d+`
+  // Stops at "|" (next branch) or ")" (end of the enclosing group).
+  function parseSeq(){
+    const items = [];
+    while(!eof() && peek()!=='|' && peek()!==')') items.push(parseQuant());
+    return {type:'seq', items};
+  }
+
+  // quantifier: an atom optionally followed by * + ? or {n,m}, plus a lazy "?"
+  function parseQuant(){
+    let atom = parseAtom();
+    const q = peek();
+    if(q==='*'||q==='+'||q==='?'){
+      next(); let lazy=false;
+      if(peek()==='?'){ next(); lazy=true; }     // e.g. *?  +?  ??  = lazy (match as few as possible)
+      atom = {type:'quant', kind:q, lazy, child:atom};
+    } else if(q==='{'){
+      // Braces are only a quantifier if they parse cleanly as {n}, {n,} or {n,m}.
+      // If not, we rewind (i = save) and treat "{" as a literal character.
+      const save=i; next(); let num='';
+      while(/[0-9]/.test(peek())) num+=next();
+      let min = num===''?null:+num, max=min;
+      if(peek()===','){ next(); let n2='';
+        while(/[0-9]/.test(peek())) n2+=next();
+        max = n2===''?Infinity:+n2; }            // {n,} with no upper bound → Infinity
+      if(peek()==='}' && min!==null){ next(); let lazy=false;
+        if(peek()==='?'){ next(); lazy=true; }
+        atom={type:'quant', kind:'{}', min, max, lazy, child:atom};
+      } else i=save;
+    }
+    return atom;
+  }
+  // atom: the smallest indivisible unit — a group, a class, an anchor,
+  // an escape, or a single literal character.
+  function parseAtom(){
+    const c = peek();
+
+    // "(" opens a group. The characters right after decide what kind:
+    //   (?:…) non-capturing   (?=…) lookahead   (?!…) neg. lookahead
+    //   (?<=…) lookbehind     (?<!…) neg. lookbehind   (?<name>…) named capture
+    //   (…)   plain numbered capture
+    if(c==='('){
+      next(); let gtype='capture', name=null;
+      if(peek()==='?'){
+        next(); const m=peek();
+        if(m===':'){ next(); gtype='noncapture'; }
+        else if(m==='='){ next(); gtype='lookahead'; }
+        else if(m==='!'){ next(); gtype='neglookahead'; }
+        else if(m==='<'){
+          next();
+          if(peek()==='='){ next(); gtype='lookbehind'; }
+          else if(peek()==='!'){ next(); gtype='neglookbehind'; }
+          else { // (?<name>…) — read the name up to ">"
+            gtype='capture'; name='';
+            while(peek()!=='>'&&!eof()) name+=next();
+            if(peek()==='>') next(); }
+        }
+      }
+      let gnum=null;
+      if(gtype==='capture') gnum=++groupNum;  // only real captures get a number
+      const inner=parseAlt();                 // recurse: a group contains a full sub-pattern
+      if(peek()===')') next();
+      return {type:'group', gtype, name, gnum, child:inner};
+    }
+
+    if(c==='[') return parseClass();                                    // [...] character class
+    if(c==='^'){ next(); return {type:'anchor', kind:'start'}; }        // start of line/string
+    if(c==='$'){ next(); return {type:'anchor', kind:'end'}; }          // end of line/string
+    if(c==='.'){ next(); return {type:'dot'}; }                         // any char
+
+    // Backslash escapes: anchors (\b), shorthand classes (\d \w \s …),
+    // control chars (\n \t …), or an escaped literal (\. → ".").
+    if(c==='\\'){
+      next(); const e=next();
+      if('bB'.includes(e)) return {type:'anchor', kind:e==='b'?'wordb':'nwordb'};
+      if('dDwWsS'.includes(e)) return {type:'cls-shorthand', ch:e};
+      if('nrtfv0'.includes(e)) return {type:'literal', ch:'\\'+e, real:{n:'\n',r:'\r',t:'\t',f:'\f',v:'\v','0':'\0'}[e]};
+      return {type:'literal', ch:e, real:e};
+    }
+
+    // Anything else is a plain literal character.
+    const ch=next();
+    return {type:'literal', ch, real:ch};
+  }
+
+  // character class: [abc], [a-z], [^0-9] …
+  // `negate` is true for [^…]; `parts` holds single chars {ch} and ranges {from,to}.
+  function parseClass(){
+    next(); let negate=false;
+    if(peek()==='^'){ next(); negate=true; }
+    const parts=[];
+    while(!eof() && peek()!==']'){
+      let lo;
+      if(peek()==='\\'){ next(); lo='\\'+next(); } else lo=next();
+      // A "-" that isn't the last char before "]" means this is a range (a-z).
+      if(peek()==='-' && src[i+1]!==']' && !eof()){
+        next(); let hi;
+        if(peek()==='\\'){ next(); hi='\\'+next(); } else hi=next();
+        parts.push({from:lo, to:hi});
+      } else parts.push({ch:lo});
+    }
+    if(peek()===']') next();
+    return {type:'class', negate, parts};
+  }
+
+  return parseAlt();   // kick off parsing at the loosest-binding rule
+}
+
+// ── 2. EXPLANATION ──
+function explainAST(node, out){
+  out = out||[];
+  switch(node.type){
+    case 'seq': node.items.forEach(n=>explainAST(n,out)); break;
+    case 'alt':
+      out.push({tok:'|', cls:'meta', desc:'<b>Alternation</b> — match any one of the '+node.branches.length+' options'});
+      node.branches.forEach(b=>explainAST(b,out));
+      break;
+    case 'group': {
+      let d;
+      if(node.gtype==='capture') d = node.name
+        ? `<b>Named capture group</b> «${node.name}» — remembers what it matched`
+        : `<b>Capture group ${node.gnum}</b> — remembers what it matched for later reference`;
+      else if(node.gtype==='noncapture') d='<b>Non-capturing group</b> — groups without remembering';
+      else if(node.gtype==='lookahead') d='<b>Positive lookahead</b> — asserts what follows, without consuming it';
+      else if(node.gtype==='neglookahead') d='<b>Negative lookahead</b> — asserts what does NOT follow';
+      else if(node.gtype==='lookbehind') d='<b>Positive lookbehind</b> — asserts what precedes';
+      else d='<b>Negative lookbehind</b> — asserts what does NOT precede';
+      const open = node.gtype==='capture' ? (node.name?`(?<${node.name}>`:'(') :
+        {noncapture:'(?:',lookahead:'(?=',neglookahead:'(?!',lookbehind:'(?<=',neglookbehind:'(?<!'}[node.gtype];
+      out.push({tok:open, cls:'group', desc:d});
+      explainAST(node.child, out);
+      out.push({tok:')', cls:'group', desc:'end of group'});
+      break;
+    }
+    case 'quant': {
+      let q,d;
+      if(node.kind==='*'){ q='*'; d='<b>Zero or more</b> of the preceding'; }
+      else if(node.kind==='+'){ q='+'; d='<b>One or more</b> of the preceding'; }
+      else if(node.kind==='?'){ q='?'; d='<b>Optional</b> — zero or one of the preceding'; }
+      else { q='{'+node.min+(node.max===node.min?'':','+(node.max===Infinity?'':node.max))+'}';
+        d = node.max===Infinity ? `<b>${node.min} or more</b> of the preceding`
+          : node.min===node.max ? `<b>Exactly ${node.min}</b> of the preceding`
+          : `<b>Between ${node.min} and ${node.max}</b> of the preceding`; }
+      explainAST(node.child, out);
+      out.push({tok:q+(node.lazy?'?':''), cls:'quant',
+        desc:d + (node.lazy?' — <b>lazy</b> (as few as possible)':' (greedy)')});
+      break;
+    }
+    case 'class':
+      out.push({tok:'['+(node.negate?'^':'')+'…]', cls:'cls', desc:describeClass(node)});
+      break;
+    case 'cls-shorthand': {
+      const map={d:'any <b>digit</b> (0–9)',D:'any <b>non-digit</b>',
+        w:'any <b>word character</b> (letters, digits, underscore)',W:'any <b>non-word</b> character',
+        s:'any <b>whitespace</b>',S:'any <b>non-whitespace</b>'};
+      out.push({tok:'\\'+node.ch, cls:'cls', desc:map[node.ch]});
+      break;
+    }
+    case 'dot': out.push({tok:'.', cls:'meta', desc:'<b>Any character</b> (except newline, unless <code>s</code> flag)'}); break;
+    case 'anchor': {
+      const map={start:['^','<b>Start</b> of string (or line with <code>m</code>)'],
+        end:['$','<b>End</b> of string (or line with <code>m</code>)'],
+        wordb:['\\b','<b>Word boundary</b>'],nwordb:['\\B','<b>Non-word-boundary</b>']};
+      const [t,d]=map[node.kind];
+      out.push({tok:t, cls:'anchor', desc:d});
+      break;
+    }
+    case 'literal':
+      out.push({tok:node.ch, cls:'literal', desc:`Matches the literal character <b>${escapeHtml(node.real||node.ch)}</b>`});
+      break;
+  }
+  return out;
+}
+function describeClass(node){
+  const bits = node.parts.map(p=> p.ch!==undefined ? `<b>${escapeHtml(p.ch)}</b>` : `range <b>${escapeHtml(p.from)}–${escapeHtml(p.to)}</b>`);
+  return (node.negate?'<b>Any character except</b>: ':'<b>Any one of</b>: ') + bits.join(', ');
+}
+
+// ── 3. RAILROAD DIAGRAM ──
+const RR = { H:34, gap:14 };
+function measure(node){
+  switch(node.type){
+    case 'seq':
+      if(!node.items.length){ node._w=20; node._h=RR.H; return node; }
+      { let w=0,h=RR.H;
+        node.items.forEach(it=>{ measure(it); w+=it._w+RR.gap; h=Math.max(h,it._h); });
+        node._w=w-RR.gap; node._h=h; }
+      return node;
+    case 'alt':
+      { let w=0,h=0;
+        node.branches.forEach(b=>{ measure(b); w=Math.max(w,b._w); h+=b._h+12; });
+        node._w=w+44; node._h=h+8; }
+      return node;
+    case 'group':
+      measure(node.child); node._w=node.child._w+24; node._h=node.child._h+28; return node;
+    case 'quant':
+      measure(node.child); node._w=node.child._w+28; node._h=node.child._h+22; return node;
+    default:
+      { const l=nodeLabel(node); node._w=Math.max(38, l.length*8.6+22); node._h=RR.H; }
+      return node;
+  }
+}
+function nodeLabel(node){
+  switch(node.type){
+    case 'literal': return node.ch;
+    case 'dot': return 'any';
+    case 'cls-shorthand': return '\\'+node.ch;
+    case 'class': return '['+(node.negate?'^':'')+node.parts.map(p=>p.ch!==undefined?p.ch:p.from+'-'+p.to).join('')+']';
+    case 'anchor': return {start:'^',end:'$',wordb:'\\b',nwordb:'\\B'}[node.kind];
+    default: return '?';
+  }
+}
+function nodeColor(node){
+  switch(node.type){
+    case 'literal': return 'var(--tx)';
+    case 'class': case 'cls-shorthand': return 'var(--green)';
+    case 'dot': return 'var(--purple)';
+    case 'anchor': return 'var(--coral)';
+    default: return 'var(--tx)';
+  }
+}
+let svgBuf=[];
+const rect=(x,y,w,h,rx,fill,stroke)=>svgBuf.push(`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" rx="${rx}" fill="${fill}" stroke="${stroke}" stroke-width="1.2"/>`);
+const line=(x1,y1,x2,y2)=>svgBuf.push(`<path d="M${x1.toFixed(1)} ${y1.toFixed(1)} L${x2.toFixed(1)} ${y2.toFixed(1)}" stroke="var(--line2)" stroke-width="1.5" fill="none"/>`);
+const curve=(x1,y1,x2,y2)=>{ const mx=(x1+x2)/2; svgBuf.push(`<path d="M${x1.toFixed(1)} ${y1.toFixed(1)} C${mx.toFixed(1)} ${y1.toFixed(1)} ${mx.toFixed(1)} ${y2.toFixed(1)} ${x2.toFixed(1)} ${y2.toFixed(1)}" stroke="var(--line2)" stroke-width="1.5" fill="none"/>`); };
+const label=(x,y,t,c)=>svgBuf.push(`<text x="${x.toFixed(1)}" y="${(y+4).toFixed(1)}" font-family="var(--mono)" font-size="13" fill="${c}" text-anchor="middle">${escapeHtml(t)}</text>`);
+function draw(node,x,y){
+  switch(node.type){
+    case 'seq':
+      if(!node.items.length){ line(x,y,x+20,y); return; }
+      { let cx=x;
+        node.items.forEach((it,idx)=>{ draw(it,cx,y); cx+=it._w;
+          if(idx<node.items.length-1){ line(cx,y,cx+RR.gap,y); cx+=RR.gap; } }); }
+      break;
+    case 'alt':
+      { const leftX=x, rightX=x+node._w; let cy=y-node._h/2+4;
+        node.branches.forEach(b=>{
+          const by=cy+b._h/2, bx=leftX+22+(node._w-44-b._w)/2;
+          curve(leftX,y,leftX+22,by); line(leftX+22,by,bx,by);
+          draw(b,bx,by); line(bx+b._w,by,rightX-22,by); curve(rightX-22,by,rightX,y);
+          cy+=b._h+12; }); }
+      break;
+    case 'group':
+      { const gx=x, gy=y-node._h/2, gw=node._w, gh=node._h;
+        const col = node.gtype==='capture'?'var(--blue)':'var(--line2)';
+        const dash = node.gtype==='capture'?'':'stroke-dasharray="4 3"';
+        svgBuf.push(`<rect x="${(gx+2).toFixed(1)}" y="${gy.toFixed(1)}" width="${(gw-4).toFixed(1)}" height="${gh.toFixed(1)}" rx="9" fill="rgba(92,180,232,0.05)" stroke="${col}" stroke-width="1.2" ${dash}/>`);
+        const tag = node.gtype==='capture' ? (node.name?('«'+node.name+'»'):('group '+node.gnum)) :
+          {noncapture:'(?:)',lookahead:'(?=)',neglookahead:'(?!)',lookbehind:'(?<=)',neglookbehind:'(?<!)'}[node.gtype];
+        svgBuf.push(`<text x="${(gx+12).toFixed(1)}" y="${(gy+13).toFixed(1)}" font-family="var(--mono)" font-size="10" fill="${col}">${escapeHtml(tag)}</text>`);
+        line(gx,y,gx+12,y); draw(node.child,gx+12,y+6); line(gx+12+node.child._w,y,gx+gw,y); }
+      break;
+    case 'quant':
+      { const qx=x, qw=node._w;
+        line(qx,y,qx+14,y); draw(node.child,qx+14,y); line(qx+14+node.child._w,y,qx+qw,y);
+        const kind=node.kind, cxL=qx+14, cxR=qx+14+node.child._w;
+        const topY=y-node.child._h/2-10;
+        if(kind==='*'||kind==='+'||kind==='{}'){
+          const botY=y+node.child._h/2+10;
+          svgBuf.push(`<path d="M${cxR} ${y} C${cxR+8} ${botY} ${cxL-8} ${botY} ${cxL} ${y}" stroke="var(--amber)" stroke-width="1.4" fill="none"/>`);
+        }
+        if(kind==='*'||kind==='?'){
+          svgBuf.push(`<path d="M${qx} ${y} C${cxL} ${topY} ${cxR} ${topY} ${qx+qw} ${y}" stroke="var(--amber)" stroke-width="1.4" fill="none" stroke-dasharray="${kind==='?'?'4 3':'0'}"/>`);
+        }
+        let btxt = kind==='{}' ? '{'+node.min+(node.max===node.min?'':(','+(node.max===Infinity?'':node.max)))+'}' : kind;
+        if(node.lazy) btxt+='?';
+        svgBuf.push(`<text x="${(qx+qw/2).toFixed(1)}" y="${(y-node.child._h/2-13).toFixed(1)}" font-family="var(--mono)" font-size="11" fill="var(--amber)" text-anchor="middle">${escapeHtml(btxt)}</text>`); }
+      break;
+    default:
+      { const w=node._w,h=RR.H, rx=node.type==='anchor'?4:16, col=nodeColor(node);
+        rect(x,y-h/2,w,h,rx,'var(--panel2)',col); label(x+w/2,y,nodeLabel(node),col); }
+  }
+}
+function renderRailroad(ast){
+  measure(ast);
+  const pad=30, totalW=ast._w+pad*2+60, totalH=Math.max(ast._h+50,100), midY=totalH/2;
+  svgBuf=[];
+  svgBuf.push(`<circle cx="${pad}" cy="${midY}" r="7" fill="var(--green)"/>`);
+  line(pad,midY,pad+24,midY);
+  draw(ast,pad+24,midY);
+  const endX=pad+24+ast._w;
+  line(endX,midY,endX+24,midY);
+  svgBuf.push(`<circle cx="${endX+24}" cy="${midY}" r="7" fill="none" stroke="var(--green)" stroke-width="2"/>`);
+  svgBuf.push(`<circle cx="${endX+24}" cy="${midY}" r="3" fill="var(--green)"/>`);
+  $('#railroad').innerHTML = `<svg viewBox="0 0 ${totalW} ${totalH}" width="${totalW}" height="${totalH}" xmlns="http://www.w3.org/2000/svg">${svgBuf.join('')}</svg>`;
+}
+
+// ── 4. MATCH TRACE ──
+let traceSteps=[], traceIdx=0, tracePlaying=false, tracePlayTimer=null;
+function buildTrace(regex, text){
+  traceSteps=[];
+  if(!regex||!text) return;
+  const maxLen=Math.min(text.length,120);
+  let pos=0, fails=0;
+  let single;
+  try{ single=new RegExp(regex.source, regex.flags.replace('g','').replace('y','')); }
+  catch(e){ return; }
+  while(pos<=maxLen){
+    single.lastIndex=0;
+    const m=single.exec(text.slice(pos));
+    if(m && m.index===0){
+      const len=m[0].length||0;
+      traceSteps.push({strPos:pos, end:pos+len, action:'try', fails,
+        caption:`Attempting to match starting at position ${pos} ("${prevCh(text,pos)}").`});
+      if(len>0) traceSteps.push({strPos:pos, end:pos+len, action:'match', fails,
+        caption:`✓ Matched "${text.slice(pos,pos+len)}" — consumed ${len} character${len>1?'s':''}.`});
+      else traceSteps.push({strPos:pos, end:pos, action:'match', fails,
+        caption:`✓ Empty match at position ${pos}.`});
+      pos+=Math.max(1,len);
+    } else {
+      fails++;
+      traceSteps.push({strPos:pos, end:pos+1, action:'fail', fails,
+        caption:`✗ No match at position ${pos} ("${charAt(text,pos)}"). Engine advances to the next position.`});
+      pos+=1;
+    }
+    if(traceSteps.length>400) break;
+  }
+  traceSteps.push({strPos:maxLen, end:maxLen, action:'done', fails, caption:'Scan complete — the engine walked the entire string.'});
+}
+const charAt=(t,p)=> p<t.length ? t[p].replace('\n','⏎') : '∅';
+const prevCh=(t,p)=> p<t.length ? t[p].replace('\n','⏎') : 'end';
+function renderTraceStage(){
+  const text=state.test;
+  if(!traceSteps.length){ $('#traceStage').innerHTML='<div class="trace-empty">No trace available — check your pattern and test string.</div>'; return; }
+  const step=traceSteps[traceIdx], maxLen=Math.min(text.length,120);
+  let html='';
+  for(let k=0;k<maxLen;k++){
+    let cls='tc';
+    if(step.action==='match' && k>=step.strPos && k<step.end) cls+=' consumed';
+    else if((step.action==='fail'||step.action==='try') && k===step.strPos) cls+=(step.action==='fail'?' tried':' cursor');
+    else if(k<step.strPos) cls+=' consumed';
+    else cls+=' pending';
+    const ch = text[k]==='\n' ? '⏎<br>' : escapeHtml(text[k]);
+    html+=`<span class="${cls}">${ch}</span>`;
+  }
+  $('#traceStage').innerHTML=html;
+  $('#tcRegex').textContent = state.pattern.slice(0,24)||'—';
+  $('#tcStr').textContent = `${step.strPos} / ${maxLen}`;
+  const actMap={try:'trying',match:'✓ match',fail:'✗ fail',done:'done'};
+  const actEl=$('#tcAction'); actEl.textContent=actMap[step.action]||step.action;
+  actEl.className='v '+(step.action==='match'?'ok':step.action==='fail'?'fail':'');
+  $('#tcBack').textContent=step.fails||0;
+  $('#traceCaption').innerHTML=step.caption;
+  $('#traceRange').value=traceIdx;
+  $('#traceStepNum').textContent=`step ${traceIdx} / ${traceSteps.length-1}`;
+}
+function traceReset(){ traceIdx=0; renderTraceStage(); }
+function traceStep(){ if(traceIdx<traceSteps.length-1){ traceIdx++; renderTraceStage(); } }
+function tracePlay(){
+  if(tracePlaying){ stopPlay(); return; }
+  tracePlaying=true; $('#tracePlay').innerHTML='❚❚ Pause';
+  tracePlayTimer=setInterval(()=>{ if(traceIdx>=traceSteps.length-1){ stopPlay(); return; } traceIdx++; renderTraceStage(); }, 420);
+}
+function stopPlay(){ tracePlaying=false; clearInterval(tracePlayTimer); $('#tracePlay').innerHTML='▶ Play'; }
+
+// ── 5. CATASTROPHIC BACKTRACKING (heuristic) ──
+function checkCatastrophic(src){
+  const pats=[/\([^)]*[+*]\)[+*]/, /\([^)]*[+*][^)]*\)[+*]/];
+  for(const p of pats) if(p.test(src)) return true;
+  if(/\([^)]*\|[^)]*\)[+*]/.test(src) && /(\w)[^)]*\|[^)]*\1/.test(src)) return true;
+  return false;
+}
+
+// ── 6. MAIN ──
+function escapeHtml(s){ return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function run(){
+  state.pattern=$('#pattern').value;
+  state.flags=$$('.flag.on').map(b=>b.dataset.f).join('');
+  state.test=$('#test').value;
+  $('#patError').classList.remove('show');
+  $('#patStatus').textContent='';
+  let regex=null;
+  if(state.pattern){
+    try{ regex=new RegExp(state.pattern, state.flags); $('#patStatus').innerHTML='<span style="color:var(--green)">✓ valid</span>'; }
+    catch(e){ $('#patError').classList.add('show'); $('#patErrorMsg').textContent=e.message; $('#patStatus').innerHTML='<span style="color:var(--coral)">✗ invalid</span>'; }
+  }
+  const warn=state.pattern && checkCatastrophic(state.pattern);
+  $('#warnBox').classList.toggle('show', !!warn);
+  if(warn) $('#warnMsg').innerHTML=`<b>Possible catastrophic backtracking.</b> This pattern has nested or overlapping quantifiers (like <code>(a+)+</code>) that can cause exponential slowdown on some inputs. Consider a stricter inner class or an atomic/possessive rewrite.`;
+  if(state.pattern){
+    try{ const ast=parseRegex(state.pattern); renderRailroad(ast); renderExplain(ast); }
+    catch(e){ $('#railroad').innerHTML='<div class="trace-empty">Could not diagram this pattern.</div>'; $('#explainList').innerHTML=''; }
+  } else {
+    $('#railroad').innerHTML='<div class="trace-empty">Enter a pattern to see its railroad diagram.</div>';
+    $('#explainList').innerHTML='<div class="trace-empty">Enter a pattern to see the breakdown.</div>';
+  }
+  // Fan out to every view. Each render function reads from `state` (and the
+  // compiled `regex`) and is responsible for one tab — they don't touch each
+  // other, so adding a new view is just adding another render call here.
+  renderMatches(regex);
+  renderReplace(regex);
+  renderExtract(regex);
+  renderSplit(regex);
+  renderNFA();
+  renderExport();
+  renderTests(regex);
+
+  // The match trace needs both a valid regex and some text to walk over.
+  if(regex && state.test){ buildTrace(regex, state.test); traceIdx=0; renderTraceStage(); }
+  else { traceSteps=[]; $('#traceStage').innerHTML='<div class="trace-empty">Enter a pattern and test string to trace the engine.</div>'; }
+  $('#traceRange').max = traceSteps.length ? traceSteps.length-1 : 0;
+
+  saveURL();   // keep the shareable URL in sync with the current state
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ADVANCED FEATURES
+   State machine (NFA), performance profiler, code export, and the test suite.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+// ── NFA engine (Thompson construction) ──
+// Compiles the parsed AST into a non-deterministic finite automaton.
+// `mk()` makes a fresh state: `id` is a unique number, `eps` are epsilon
+// (free) transitions, and `trans` are character-consuming transitions.
+function buildNFA(ast){
+  let id=0;
+  const mk=()=>({id:id++, eps:[], trans:[]});
+  // frag(node) → { start, accept }
+  // Thompson's construction: every AST node becomes a small NFA "fragment"
+  // with exactly one entry (start) and one exit (accept) state. We glue
+  // fragments together with epsilon (ε) transitions — free moves that consume
+  // no input. Building bottom-up this way guarantees a well-formed machine.
+  function frag(node){
+    switch(node.type){
+      // Sequence: chain fragments end-to-end. Each item's accept ε-links to
+      // the next item's start, so the machine flows straight through.
+      case 'seq':{
+        if(!node.items.length){const s=mk();return{start:s,accept:s};}
+        let start=null,prev=null;
+        node.items.forEach(it=>{const f=frag(it);
+          if(!start)start=f.start; else prev.eps.push(f.start); prev=f.accept;});
+        return{start,accept:prev};
+      }
+      // Alternation (a|b): a fresh start state ε-branches into every option,
+      // and every option's accept ε-merges into a shared accept state.
+      case 'alt':{
+        const s=mk(),a=mk();
+        node.branches.forEach(b=>{const f=frag(b);s.eps.push(f.start);f.accept.eps.push(a);});
+        return{start:s,accept:a};
+      }
+      // Quantifiers wire ε-loops and ε-skips around the child fragment:
+      //   *  skip allowed + loop back   (zero or more)
+      //   +  no skip     + loop back   (one or more)
+      //   ?  skip allowed + no loop    (zero or one)
+      //   {} approximated as "one or more" for diagram purposes
+      case 'quant':{
+        const f=frag(node.child), s=mk(), a=mk();
+        if(node.kind==='*'){s.eps.push(f.start,a);f.accept.eps.push(f.start,a);}
+        else if(node.kind==='+'){s.eps.push(f.start);f.accept.eps.push(f.start,a);}
+        else if(node.kind==='?'){s.eps.push(f.start,a);f.accept.eps.push(a);}
+        else{s.eps.push(f.start,a);f.accept.eps.push(f.start,a);}
+        return{start:s,accept:a};
+      }
+      // A group is just its inner pattern for machine purposes (the capturing
+      // behaviour doesn't change the shape of the automaton).
+      case 'group': return frag(node.child);
+      // Anchors and everything else become a single character-consuming edge
+      // from start → accept, labelled with what they match.
+      case 'anchor':{const s=mk(),a=mk();s.trans.push({node,to:a,label:nfaLabel(node)});return{start:s,accept:a};}
+      default:{const s=mk(),a=mk();s.trans.push({node,to:a,label:nfaLabel(node)});return{start:s,accept:a};}
+    }
+  }
+  const f=frag(ast); f.accept.accepting=true;   // mark the final exit as accepting
+  return{start:f.start, accept:f.accept, count:id};
+}
+
+// Short human-readable label for the edge that a node produces in the diagram.
+function nfaLabel(node){
+  switch(node.type){
+    case 'literal': return node.ch;
+    case 'dot': return '.';
+    case 'cls-shorthand': return '\\'+node.ch;
+    case 'class': return '['+(node.negate?'^':'')+node.parts.map(p=>p.ch!==undefined?p.ch:p.from+'-'+p.to).join('')+']';
+    case 'anchor': return {start:'^',end:'$',wordb:'\\b',nwordb:'\\B'}[node.kind];
+    default: return '?';
+  }
+}
+
+// ── NFA diagram (layered left-to-right) ──
+function renderNFA(){
+  const box=$('#nfaDiagram');
+  if(!state.pattern){ box.innerHTML='<div class="trace-empty">Enter a pattern to compile its state machine.</div>'; $('#nfaNote').textContent=''; return; }
+  let nfa;
+  try{ const ast=parseRegex(state.pattern); nfa=buildNFA(ast); }
+  catch(e){ box.innerHTML='<div class="trace-empty">Could not compile this pattern.</div>'; return; }
+  if(nfa.count>90){ box.innerHTML='<div class="trace-empty">State machine too large to draw ('+nfa.count+' states). Try a shorter pattern.</div>'; $('#nfaNote').textContent=''; return; }
+
+  // Walk the whole machine once (depth-first) to collect every reachable state.
+  const states=[]; const seen=new Set();
+  (function walk(s){ if(seen.has(s.id))return; seen.add(s.id); states.push(s);
+    s.eps.forEach(t=>walk(t)); s.trans.forEach(t=>walk(t.to)); })(nfa.start);
+
+  // Assign each state to a horizontal "layer" = its longest distance from the
+  // start. We relax layers repeatedly until nothing changes (a small
+  // longest-path pass). `guard` just prevents an infinite loop on odd graphs.
+  const layer={}; layer[nfa.start.id]=0;
+  let changed=true, guard=0;
+  while(changed && guard++<400){ changed=false;
+    states.forEach(s=>{ const L=layer[s.id]; if(L===undefined)return;
+      const outs=[...s.eps,...s.trans.map(t=>t.to)];
+      outs.forEach(o=>{ if(layer[o.id]===undefined||layer[o.id]<L+1){layer[o.id]=L+1;changed=true;} }); });
+  }
+
+  // Group states by layer, then place each layer in its own column and stack
+  // its states vertically. This gives a clean left-to-right flow.
+  const byLayer={};
+  states.forEach(s=>{ const L=layer[s.id]||0; (byLayer[L]=byLayer[L]||[]).push(s); });
+  const layers=Object.keys(byLayer).map(Number).sort((a,b)=>a-b);
+  const colW=110, rowH=64, padX=40, padY=40, r=16;   // layout constants (px)
+  const pos={};
+  layers.forEach(L=>{ byLayer[L].forEach((s,i)=>{ pos[s.id]={x:padX+L*colW, y:padY+i*rowH}; }); });
+  const maxRows=Math.max(...layers.map(L=>byLayer[L].length));
+  const W=padX*2+(layers.length-1)*colW+40, H=padY*2+(maxRows-1)*rowH+40;
+
+  let s='';
+  // Draw edges first (so nodes sit on top): grey dashed = ε, green = consumes a char.
+  states.forEach(st=>{
+    const a=pos[st.id];
+    st.eps.forEach(t=>{ const b=pos[t.id]; s+=edge(a,b,'ε','var(--txd)',true); });
+    st.trans.forEach(t=>{ const b=pos[t.id]; s+=edge(a,b,t.label,'var(--green)',false); });
+  });
+  // nodes
+  states.forEach(st=>{
+    const p=pos[st.id];
+    const isStart=st.id===nfa.start.id, isAcc=st.accepting;
+    s+=`<circle cx="${p.x}" cy="${p.y}" r="${r}" fill="${isStart?'rgba(92,180,232,0.15)':'var(--panel2)'}" stroke="${isAcc?'var(--green)':isStart?'var(--blue)':'var(--line2)'}" stroke-width="${isAcc?2.2:1.3}"/>`;
+    if(isAcc) s+=`<circle cx="${p.x}" cy="${p.y}" r="${r-4}" fill="none" stroke="var(--green)" stroke-width="1.2"/>`;
+    s+=`<text x="${p.x}" y="${p.y+4}" font-family="var(--mono)" font-size="11" fill="var(--txs)" text-anchor="middle">q${st.id}</text>`;
+    if(isStart) s+=`<text x="${p.x}" y="${p.y-r-6}" font-family="var(--mono)" font-size="9" fill="var(--blue)" text-anchor="middle">START</text>`;
+  });
+  const defs=`<defs><marker id="arw" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--line2)"/></marker></defs>`;
+  box.innerHTML=`<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">${defs}${s}</svg>`;
+  $('#nfaNote').textContent=`${nfa.count} states. Double circles = accepting. Green edges consume a character; grey ε-edges are free moves the engine can take without consuming input.`;
+}
+function edge(a,b,label,color,dashed){
+  if(a.x===b.x&&a.y===b.y){
+    // self loop
+    return `<path d="M${a.x} ${a.y-16} C${a.x-26} ${a.y-46} ${a.x+26} ${a.y-46} ${a.x} ${a.y-16}" fill="none" stroke="${color}" stroke-width="1.3" ${dashed?'stroke-dasharray="3 3"':''} marker-end="url(#arw)"/><text x="${a.x}" y="${a.y-42}" font-family="var(--mono)" font-size="10" fill="${color}" text-anchor="middle">${escapeHtml(label)}</text>`;
+  }
+  const dx=b.x-a.x, dy=b.y-a.y, len=Math.hypot(dx,dy)||1;
+  const ux=dx/len, uy=dy/len;
+  const sx=a.x+ux*16, sy=a.y+uy*16, ex=b.x-ux*18, ey=b.y-uy*18;
+  const mx=(sx+ex)/2, my=(sy+ey)/2 - (Math.abs(dy)>2?0:14);
+  return `<path d="M${sx.toFixed(1)} ${sy.toFixed(1)} Q${mx.toFixed(1)} ${my.toFixed(1)} ${ex.toFixed(1)} ${ey.toFixed(1)}" fill="none" stroke="${color}" stroke-width="1.3" ${dashed?'stroke-dasharray="3 3"':''} marker-end="url(#arw)"/><text x="${mx.toFixed(1)}" y="${(my-4).toFixed(1)}" font-family="var(--mono)" font-size="10" fill="${color}" text-anchor="middle">${escapeHtml(label)}</text>`;
+}
+
+// ── Profiler ──
+function runProfiler(){
+  const box=$('#perfChart');
+  if(!state.pattern){ box.innerHTML='<div class="trace-empty">Enter a pattern first.</div>'; return; }
+  let re;
+  try{ re=new RegExp(state.pattern, state.flags.replace('g','')); }
+  catch(e){ box.innerHTML='<div class="trace-empty">Invalid pattern.</div>'; return; }
+  const sizes=[2,4,6,8,10,12,14,16,18,20,22,24,26,28];
+  const pts=[];
+  // build a "hostile" input: repeated 'a' then a non-matching char (classic ReDoS trigger)
+  sizes.forEach(n=>{
+    const input='a'.repeat(n)+'!';
+    const t0=performance.now();
+    let iter=0;
+    const deadline=t0+40; // cap 40ms per size
+    do{ re.lastIndex=0; try{re.test(input);}catch(e){} iter++; }while(performance.now()<deadline && iter<20000);
+    const per=(performance.now()-t0)/iter;
+    pts.push({n, ms:per});
+  });
+  const maxMs=Math.max(...pts.map(p=>p.ms), 0.001);
+  const W=560,H=200,padL=48,padB=28,padT=12,padR=12;
+  const plotW=W-padL-padR, plotH=H-padT-padB;
+  let s='';
+  // axes
+  s+=`<line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT+plotH}" stroke="var(--line2)" stroke-width="1"/>`;
+  s+=`<line x1="${padL}" y1="${padT+plotH}" x2="${padL+plotW}" y2="${padT+plotH}" stroke="var(--line2)" stroke-width="1"/>`;
+  // line
+  const path=pts.map((p,i)=>{
+    const x=padL+(i/(pts.length-1))*plotW;
+    const y=padT+plotH-(p.ms/maxMs)*plotH;
+    return (i?'L':'M')+x.toFixed(1)+' '+y.toFixed(1);
+  }).join(' ');
+  const exponential=pts[pts.length-1].ms > pts[Math.floor(pts.length/2)].ms*4;
+  const lineCol=exponential?'var(--coral)':'var(--green)';
+  s+=`<path d="${path}" fill="none" stroke="${lineCol}" stroke-width="2"/>`;
+  pts.forEach((p,i)=>{ const x=padL+(i/(pts.length-1))*plotW, y=padT+plotH-(p.ms/maxMs)*plotH;
+    s+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="${lineCol}"/>`; });
+  // labels
+  s+=`<text x="${padL-6}" y="${padT+6}" font-family="var(--mono)" font-size="9" fill="var(--txd)" text-anchor="end">${maxMs.toFixed(3)}ms</text>`;
+  s+=`<text x="${padL-6}" y="${padT+plotH}" font-family="var(--mono)" font-size="9" fill="var(--txd)" text-anchor="end">0</text>`;
+  s+=`<text x="${padL+plotW/2}" y="${H-6}" font-family="var(--mono)" font-size="9" fill="var(--txd)" text-anchor="middle">input length (repeated 'a' + '!')</text>`;
+  box.innerHTML=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px" xmlns="http://www.w3.org/2000/svg">${s}</svg>`;
+  $('#perfNote').innerHTML = exponential
+    ? `<b style="color:var(--coral)">⚠ Exponential blow-up detected.</b> Match time rises sharply as input grows — this pattern is vulnerable to catastrophic backtracking (ReDoS). Rewrite before using it on untrusted input.`
+    : `<b style="color:var(--green)">✓ Looks linear.</b> Match time grows proportionally with input length — no catastrophic backtracking detected on this test.`;
+}
+
+// ── Code export ──
+function renderExport(){
+  const out=$('#exportOut');
+  const lang=$('#exportLang').value;
+  if(!state.pattern){ out.textContent='// Enter a pattern to generate code.'; return; }
+  const p=state.pattern, f=state.flags;
+  const esc = s => s.replace(/\\/g,'\\\\').replace(/"/g,'\\"');
+  const tmpl={
+    js:`const re = /${p}/${f};\nconst matches = "your text".match(re);\nconsole.log(matches);`,
+    py:`import re\n\npattern = re.compile(r"${p.replace(/"/g,'\\"')}"${pyFlags(f)})\nmatches = pattern.findall("your text")\nprint(matches)`,
+    java:`import java.util.regex.*;\n\nPattern p = Pattern.compile("${esc(p)}"${javaFlags(f)});\nMatcher m = p.matcher("your text");\nwhile (m.find()) {\n    System.out.println(m.group());\n}`,
+    go:`package main\n\nimport (\n    "fmt"\n    "regexp"\n)\n\nfunc main() {\n    re := regexp.MustCompile(\`${p}\`)\n    matches := re.FindAllString("your text", -1)\n    fmt.Println(matches)\n}`,
+    rust:`use regex::Regex;\n\nfn main() {\n    let re = Regex::new(r"${p.replace(/"/g,'\\"')}").unwrap();\n    for m in re.find_iter("your text") {\n        println!("{}", m.as_str());\n    }\n}`,
+    php:`<?php\n$re = '/${p.replace(/\//g,'\\/')}/${f}';\npreg_match_all($re, "your text", $matches);\nprint_r($matches);`,
+    ruby:`re = /${p}/${f}\n"your text".scan(re) { |m| puts m }`,
+    csharp:`using System.Text.RegularExpressions;\n\nvar re = new Regex("${esc(p)}"${csFlags(f)});\nforeach (Match m in re.Matches("your text")) {\n    Console.WriteLine(m.Value);\n}`,
+  };
+  out.textContent = tmpl[lang];
+}
+function pyFlags(f){ const m=[]; if(f.includes('i'))m.push('re.IGNORECASE'); if(f.includes('m'))m.push('re.MULTILINE'); if(f.includes('s'))m.push('re.DOTALL'); return m.length?', '+m.join(' | '):''; }
+function javaFlags(f){ const m=[]; if(f.includes('i'))m.push('Pattern.CASE_INSENSITIVE'); if(f.includes('m'))m.push('Pattern.MULTILINE'); if(f.includes('s'))m.push('Pattern.DOTALL'); return m.length?', '+m.join(' | '):''; }
+function csFlags(f){ const m=[]; if(f.includes('i'))m.push('RegexOptions.IgnoreCase'); if(f.includes('m'))m.push('RegexOptions.Multiline'); if(f.includes('s'))m.push('RegexOptions.Singleline'); return m.length?', '+m.join(' | '):''; }
+
+// ── Test suite ──
+function renderTests(regex){
+  const box=$('#testResults');
+  const should=($('#shouldMatch').value||'').split('\n').filter(x=>x.length);
+  const shouldNot=($('#shouldNot').value||'').split('\n').filter(x=>x.length);
+  const total=should.length+shouldNot.length;
+  $('#testsBadge').textContent=total;
+  if(!regex){ box.innerHTML='<div class="trace-empty">Enter a valid pattern to run tests.</div>'; return; }
+  if(!total){ box.innerHTML='<div class="trace-empty">Add examples above to test your pattern against them.</div>'; return; }
+  let pass=0;
+  const rows=[];
+  const testRe=()=>new RegExp(regex.source, regex.flags.replace('g',''));
+  should.forEach(t=>{ let ok=false; try{ok=testRe().test(t);}catch(e){}
+    if(ok)pass++; rows.push({t, ok, want:'match'}); });
+  shouldNot.forEach(t=>{ let m=false; try{m=testRe().test(t);}catch(e){}
+    const ok=!m; if(ok)pass++; rows.push({t, ok, want:'not match'}); });
+  const all=pass===total;
+  let html=`<div class="test-summary ${all?'allpass':'somefail'}">${all?'✓ All':pass+' of'} ${total} test${total===1?'':'s'} pass${all?'':'ing'}${all?'!':' — '+(total-pass)+' failing'}</div>`;
+  html+=rows.map(r=>`<div class="test-row ${r.ok?'pass':'fail'}"><span class="ico">${r.ok?'✓':'✗'}</span><span class="txt">${escapeHtml(r.t)}</span><span class="exp">should ${r.want}</span></div>`).join('');
+  box.innerHTML=html;
+}
+
+// ── Replace: transform text using the pattern + replacement ──
+function renderReplace(regex){
+  const out=$('#replaceOut'), note=$('#replaceNote');
+  const repl=$('#replaceInput').value;
+  if(!regex || !state.test){ out.innerHTML='<span style="color:var(--txd)">Enter a pattern and test string to see the replaced output.</span>'; note.textContent=''; return; }
+  try{
+    const g=new RegExp(regex.source, regex.flags.includes('g')?regex.flags:regex.flags+'g');
+    // build a highlighted preview: wrap each replaced span
+    let count=0;
+    const result = state.test.replace(g, function(){ count++; 
+      const args=[...arguments];
+      // reconstruct replacement with $1..$9, $&
+      let r=repl.replace(/\$(\d|&|`|')/g, (mm,d)=>{
+        if(d==='&') return args[0];
+        if(d==="'"||d==='`') return '';
+        const gi=+d; return args[gi]!==undefined?args[gi]:'';
+      });
+      return '\u0001'+r+'\u0002';
+    });
+    const html = escapeHtml(result).replace(/\u0001/g,'<span class="rep">').replace(/\u0002/g,'</span>');
+    out.innerHTML = html || '<span style="color:var(--txd)">(empty result)</span>';
+    note.textContent = `${count} replacement${count===1?'':'s'} made.`;
+  }catch(e){ out.innerHTML='<span style="color:var(--coral)">'+escapeHtml(e.message)+'</span>'; note.textContent=''; }
+}
+
+// ── Extract: pull matches (or a chosen group) into a clean list ──
+function renderExtract(regex){
+  const out=$('#extractOut'), note=$('#extractNote');
+  const mode=$('#extractMode').value;
+  if(!regex || !state.test){ out.innerHTML='<span style="color:var(--txd)">Enter a pattern and test string to extract matches.</span>'; note.textContent=''; return; }
+  try{
+    const g=new RegExp(regex.source, regex.flags.includes('g')?regex.flags:regex.flags+'g');
+    let m, items=[], guard=0;
+    while((m=g.exec(state.test))!==null){
+      let val;
+      if(mode==='full') val=m[0];
+      else { const gi=+mode.slice(1); val=m[gi]; }
+      if(val!==undefined) items.push(val);
+      if(m.index===g.lastIndex) g.lastIndex++;
+      if(++guard>5000) break;
+    }
+    window._extractItems=items;
+    out.textContent = items.length ? items.join('\n') : '(no matches for this selection)';
+    note.textContent = `${items.length} item${items.length===1?'':'s'} extracted. Click Copy to grab them.`;
+  }catch(e){ out.innerHTML='<span style="color:var(--coral)">'+escapeHtml(e.message)+'</span>'; note.textContent=''; }
+}
+
+// ── Split: break text apart on the pattern ──
+function renderSplit(regex){
+  const out=$('#splitOut'), note=$('#splitNote');
+  if(!regex || !state.test){ out.innerHTML='<span style="color:var(--txd);font-family:var(--mono);font-size:13px">Enter a pattern and test string to split text.</span>'; note.textContent=''; return; }
+  try{
+    const pieces = state.test.split(new RegExp(regex.source, regex.flags.replace('g','').replace('y','')));
+    window._splitItems=pieces;
+    out.innerHTML = pieces.map((p,i)=>`<div class="split-piece"><span class="n">${i+1}</span><span class="t ${p===''?'empty':''}">${p===''?'(empty)':escapeHtml(p)}</span></div>`).join('');
+    note.textContent = `Split into ${pieces.length} piece${pieces.length===1?'':'s'}.`;
+  }catch(e){ out.innerHTML='<span style="color:var(--coral);font-family:var(--mono);font-size:13px">'+escapeHtml(e.message)+'</span>'; note.textContent=''; }
+}
+function renderExplain(ast){
+  const rows=explainAST(ast,[]);
+  $('#explainList').innerHTML = rows.length
+    ? rows.map(r=>`<div class="exp-row"><span class="exp-token ${r.cls}">${escapeHtml(r.tok)}</span><span class="exp-desc">${r.desc}</span></div>`).join('')
+    : '<div class="trace-empty">Empty pattern.</div>';
+}
+function renderMatches(regex){
+  const text=state.test, list=$('#matchesList'), hl=$('#highlights');
+  if(!regex||!text){ list.innerHTML='<div class="trace-empty">No matches yet.</div>'; hl.innerHTML=''; $('#matchCount').textContent='0 matches'; $('#matchesBadge').textContent='0'; return; }
+  let matches=[];
+  try{
+    const g=new RegExp(regex.source, regex.flags.includes('g')?regex.flags:regex.flags+'g');
+    let m,guard=0;
+    while((m=g.exec(text))!==null){ matches.push(m); if(m.index===g.lastIndex) g.lastIndex++; if(++guard>5000) break; }
+  }catch(e){}
+  let hlHtml='', last=0;
+  matches.forEach((m,i)=>{ hlHtml+=escapeHtml(text.slice(last,m.index)); hlHtml+=`<mark class="m${i%2}">${escapeHtml(m[0])}</mark>`; last=m.index+m[0].length; });
+  hlHtml+=escapeHtml(text.slice(last));
+  hl.innerHTML=hlHtml;
+  $('#matchCount').textContent=matches.length+' match'+(matches.length===1?'':'es');
+  $('#matchesBadge').textContent=matches.length;
+  if(!matches.length){ list.innerHTML='<div class="trace-empty">No matches found.</div>'; return; }
+  list.innerHTML=matches.map((m,i)=>{
+    let groupsHtml='';
+    if(m.length>1) groupsHtml='<div class="groups">'+m.slice(1).map((g,gi)=>`<div class="grp"><span class="grp-n">group ${gi+1}</span><span class="grp-v ${g===undefined?'empty':''}">${g===undefined?'(no match)':escapeHtml(g)}</span></div>`).join('')+'</div>';
+    let namedHtml='';
+    if(m.groups) namedHtml='<div class="groups">'+Object.entries(m.groups).map(([k,v])=>`<div class="grp"><span class="grp-n">«${escapeHtml(k)}»</span><span class="grp-v ${v==null?'empty':''}">${v==null?'(no match)':escapeHtml(v)}</span></div>`).join('')+'</div>';
+    return `<div class="match-item"><div class="match-head"><span class="match-idx">Match ${i+1}</span><span class="match-pos">index ${m.index}–${m.index+m[0].length}</span></div><div class="match-val">${escapeHtml(m[0])||'<em style="color:var(--txd)">empty</em>'}</div>${groupsHtml}${namedHtml}</div>`;
+  }).join('');
+}
+$('#test').addEventListener('scroll', function(){ $('#highlights').scrollTop=this.scrollTop; $('#highlights').scrollLeft=this.scrollLeft; });
+
+// ── 7. UI wiring ──
+$$('.flag').forEach(f=>f.addEventListener('click',()=>{ f.classList.toggle('on'); run(); }));
+$('#pattern').addEventListener('input', run);
+$('#test').addEventListener('input', run);
+$$('.tab').forEach(t=>t.addEventListener('click',()=>{
+  $$('.tab').forEach(x=>x.classList.remove('on'));
+  $$('.tabpane').forEach(x=>x.classList.remove('on'));
+  t.classList.add('on'); $('#pane-'+t.dataset.tab).classList.add('on');
+}));
+$('#tracePlay').addEventListener('click', tracePlay);
+$('#traceStep').addEventListener('click', ()=>{ stopPlay(); traceStep(); });
+$('#traceReset').addEventListener('click', ()=>{ stopPlay(); traceReset(); });
+$('#traceRange').addEventListener('input', e=>{ stopPlay(); traceIdx=+e.target.value; renderTraceStage(); });
+
+// new-feature wiring
+$('#replaceInput').addEventListener('input', run);
+$('#extractMode').addEventListener('change', run);
+async function copyText(text, label){
+  try{ await navigator.clipboard.writeText(text); toast((label||'Copied')+' to clipboard'); }
+  catch(e){ toast('Copy failed — select and copy manually'); }
+}
+$('#copyReplace').addEventListener('click', ()=>copyText($('#replaceOut').textContent,'Result copied'));
+$('#copyExtract').addEventListener('click', ()=>copyText((window._extractItems||[]).join('\n'),'Extracted items copied'));
+$('#copySplit').addEventListener('click', ()=>copyText((window._splitItems||[]).join('\n'),'Pieces copied'));
+$('#runPerf').addEventListener('click', runProfiler);
+$('#exportLang').addEventListener('change', renderExport);
+$('#copyExport').addEventListener('click', ()=>copyText($('#exportOut').textContent,'Code copied'));
+$('#shouldMatch').addEventListener('input', run);
+$('#shouldNot').addEventListener('input', run);
+
+const LIBRARY=[
+  {name:'Email address', pat:'([\\w.+-]+)@([\\w-]+)\\.([\\w.-]+)', flags:'g', test:'jane.doe@example.com, admin@site.co.uk'},
+  {name:'URL', pat:'https?:\\/\\/[\\w.-]+(?:\\/[\\w./?%&=-]*)?', flags:'g', test:'Visit https://github.com/user/repo?tab=readme'},
+  {name:'IPv4 address', pat:'\\b(?:\\d{1,3}\\.){3}\\d{1,3}\\b', flags:'g', test:'Server at 192.168.1.1 and 10.0.0.255'},
+  {name:'Hex color', pat:'#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})\\b', flags:'g', test:'Colors: #fff, #1a2b3c, #GGG'},
+  {name:'Phone (intl)', pat:'\\+?\\d{1,3}[\\s-]?\\(?\\d{1,4}\\)?[\\s-]?\\d{3,4}[\\s-]?\\d{3,4}', flags:'g', test:'Call +1 (555) 123-4567 or 020-7946-0958'},
+  {name:'Date (YYYY-MM-DD)', pat:'(\\d{4})-(\\d{2})-(\\d{2})', flags:'g', test:'Events on 2024-01-15 and 2025-12-31'},
+  {name:'Word boundary', pat:'\\bcat\\b', flags:'gi', test:'The cat sat, but concatenate has cat inside.'},
+  {name:'Named groups', pat:'(?<year>\\d{4})-(?<month>\\d{2})', flags:'g', test:'2024-01, 2025-12'},
+  {name:'Catastrophic (demo)', pat:'(a+)+$', flags:'', test:'aaaaaaaaaaaaaaaaaaaaX'},
+];
+$('#library').innerHTML=LIBRARY.map((l,i)=>`<div class="lib-item" data-lib="${i}"><span class="lib-name">${l.name}</span><span class="lib-pat">/${escapeHtml(l.pat)}/${l.flags}</span></div>`).join('');
+$$('.lib-item').forEach(el=>el.addEventListener('click',()=>{
+  const l=LIBRARY[+el.dataset.lib];
+  $('#pattern').value=l.pat.replace(/\\\\/g,'\\');
+  $$('.flag').forEach(f=>f.classList.toggle('on', l.flags.includes(f.dataset.f)));
+  $('#test').value=l.test; run(); toast('Loaded: '+l.name);
+}));
+
+const CHEATS=[['.','any char'],['\\d','digit'],['\\w','word char'],['\\s','whitespace'],['\\b','word boundary'],['^','line start'],['$','line end'],['*','0 or more'],['+','1 or more'],['?','0 or 1'],['{n,m}','n to m'],['[abc]','set'],['[^a]','not a'],['(…)','capture'],['(?:…)','non-capture'],['a|b','a or b'],['\\','escape'],['(?=…)','lookahead']];
+$('#cheatsheet').innerHTML=CHEATS.map(([c,d])=>`<div class="cheat" data-ins="${escapeHtml(c)}"><code>${escapeHtml(c)}</code><span>${d}</span></div>`).join('');
+$$('.cheat').forEach(el=>el.addEventListener('click',()=>{
+  const ins=el.dataset.ins, inp=$('#pattern'), s=inp.selectionStart, e=inp.selectionEnd;
+  inp.value=inp.value.slice(0,s)+ins+inp.value.slice(e); inp.focus();
+  inp.selectionStart=inp.selectionEnd=s+ins.length; run();
+}));
+
+function saveURL(){ const p=new URLSearchParams(); p.set('p',state.pattern); p.set('f',state.flags); p.set('t',state.test); history.replaceState(null,'','#'+p.toString()); }
+function loadURL(){
+  if(!location.hash) return false;
+  try{ const p=new URLSearchParams(location.hash.slice(1));
+    if(p.has('p')){ $('#pattern').value=p.get('p'); const f=p.get('f')||'g';
+      $$('.flag').forEach(b=>b.classList.toggle('on', f.includes(b.dataset.f)));
+      if(p.has('t')) $('#test').value=p.get('t'); return true; } }catch(e){}
+  return false;
+}
+$('#shareBtn').addEventListener('click', async ()=>{
+  saveURL();
+  try{ await navigator.clipboard.writeText(location.href); toast('Link copied to clipboard'); }
+  catch(e){ toast('Copy this URL from your address bar'); }
+});
+let toastT;
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),2000); }
+
+loadURL();
+run();
+</script>
+</body>
+</html>
